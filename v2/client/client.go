@@ -11,10 +11,13 @@ import (
 	"github.com/rivo/tview"
 )
 
-func main() {
-	serverAddress := "localhost:8080" // Change to your server's address
+var (
+	color          = "white"
+	inputNameStage = true
+)
 
-	// Connect to the chat server
+func main() {
+	serverAddress := "localhost:8080"
 	conn, err := net.Dial("tcp", serverAddress)
 	if err != nil {
 		fmt.Printf("Error connecting to server: %s\n", err)
@@ -22,21 +25,17 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Setup tview application
 	app := tview.NewApplication()
 
-	// TextView for displaying messages
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetChangedFunc(func() {
-			app.Draw() // Ensure updates are reflected immediately
+			app.Draw()
 		})
 
 	textView.SetBorder(true).SetTitle("Messages")
-
-	// InputField for typing messages
-	var inputField *tview.InputField // Declare as a pointer for proper scoping
+	var inputField *tview.InputField
 	inputField = tview.NewInputField().
 		SetLabel("You: ").
 		SetDoneFunc(func(key tcell.Key) {
@@ -45,21 +44,30 @@ func main() {
 				return
 			}
 
-			// Send the message to the server
-			fmt.Fprintf(conn, "%s\n", message)
-			inputField.SetText("") // Clear the input field
+			if colorInput, found := strings.CutPrefix(message, "!color "); found {
+				color = colorInput
+				inputField.SetText("")
+				return
+			}
+
+			if strings.HasPrefix(message, "!") || inputNameStage {
+				fmt.Fprintf(conn, "%s\n", message)
+				inputNameStage = false
+			} else {
+				fmt.Fprintf(conn, "[%s]%s[white]\n", color, message)
+			}
+
+			inputField.SetText("")
 		})
 
 	inputField.SetBorder(true).SetTitle("Type your message")
 
-	// Layout the UI
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(textView, 0, 1, false). // Messages take all available space
-		AddItem(inputField, 3, 1, true) // Input field has fixed height
+		AddItem(textView, 0, 1, false).
+		AddItem(inputField, 3, 1, true)
 
 	fmt.Fprint(textView, "[grey]Please enter your username[white]\n")
 
-	// Goroutine to handle incoming messages
 	go func() {
 		reader := bufio.NewScanner(conn)
 		for reader.Scan() {
@@ -72,7 +80,6 @@ func main() {
 			})
 		}
 
-		// Handle disconnection
 		if err := reader.Err(); err != nil {
 			app.QueueUpdateDraw(func() {
 				fmt.Fprintln(textView, "[red]Disconnected from server.")
@@ -83,11 +90,9 @@ func main() {
 			})
 		}
 
-		// Stop the app after disconnection
 		app.Stop()
 	}()
 
-	// Start the app
 	if err := app.SetRoot(flex, true).Run(); err != nil {
 		fmt.Printf("Error running application: %s\n", err)
 	}
