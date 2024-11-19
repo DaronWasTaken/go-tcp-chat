@@ -1,0 +1,8 @@
+- Setup TLS
+- Create rooms - join the "default" room by default
+- Show rooms by typing !rooms
+- Join rooms by typing !join
+- Disconnect by typing !dc
+
+Optional:
+- Make a tagging system?

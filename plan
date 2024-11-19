@@ -1,7 +1,0 @@
-1. Create a main socket
-2. Upon being dialed, create a new socket that handles connection and display rooms and their current status
-3. When the user enters the room he wants to join with their username, add them to 2 hashmaps. First one
-   is for the client and room. The second one is for room and client sockets splice. Additionally a person can also create
-   a room.
-4. Upon receiving a request from a client, check where the client is connected to from the hashmap and broadcast to
-   every user connected to the server (beside the client that has sent it)
