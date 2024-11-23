@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/DaronWasTaken/go-tcp-chat/v2/server/handler"
+	"github.com/DaronWasTaken/go-tcp-chat/server/handler"
 )
 
 var (

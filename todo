@@ -1,12 +1,12 @@
-- Setup TLS
-- Create rooms - join the "default" room by default
-- Add potential password to rooms
-- Show rooms by typing !rooms
-- Create rooms by typing !create [name] [?pwd]
-- Join rooms by typing !join [name]
-- Disconnect by typing !q
-- Leave room by typing !leave
+- TLS
+- Rooms + "main" room
+- Password to rooms
+- Show rooms: !rooms
+- Create room: !create [name] [?pwd]
+- Join rooms: !join [name]
+- Disconnect: !quit
+- Leave room: !leave
 
 Optional:
-- Make a tagging system?
-- Make a color system
+- Whispers
+- Color choice (server/client)

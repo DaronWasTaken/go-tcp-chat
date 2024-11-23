@@ -2,90 +2,98 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
-	"os/exec"
-	"time"
-)
+	"strings"
 
-const (
-	CONN_TYPE      = "tcp"
-	SERVER_IP      = "192.168.0.44:3001"
-	RETRY_INTERVAL = 5 * time.Second
-	MAX_RETRIES    = 5
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 )
 
 var (
-	CONN_IP2 string
-	USERNAME string
+	color          = "white"
+	inputNameStage = true
 )
 
 func main() {
-	clear()
-	ip2 := flag.String("ip", "0.0.0.0:3000", "The other ip that you want to chat with")
-	username := flag.String("u", "default", "Your username")
-	flag.Parse()
-	CONN_IP2 = *ip2
-	USERNAME = *username
-	startClient()
-}
-
-func startClient() {
-	var conn net.Conn
-	var err error
-	for retries := 0; retries < MAX_RETRIES; retries++ {
-		conn, err = net.Dial(CONN_TYPE, CONN_IP2)
-		if err == nil {
-			log.Println("Connected to server: ", conn.RemoteAddr().String())
-			break
-		}
-		log.Printf("Failed to connect to server: %s. Retrying in %s...", err, RETRY_INTERVAL)
-		time.Sleep(RETRY_INTERVAL)
-	}
+	serverAddress := "localhost:8080"
+	conn, err := net.Dial("tcp", serverAddress)
 	if err != nil {
-		log.Fatalf("Could not connect to server after %d retries: %s", MAX_RETRIES, err)
+		fmt.Printf("Error connecting to server: %s\n", err)
 		os.Exit(1)
 	}
-
-	conn2, err := net.Dial(CONN_TYPE, SERVER_IP)
-	if err != nil {
-		log.Fatalf("Could not connect to server after %d retries: %s", MAX_RETRIES, err)
-		os.Exit(1)
-	}
-
-	readFromStdinAndSend(conn, conn2)
-
 	defer conn.Close()
-	defer conn2.Close()
-}
 
-func readFromStdinAndSend(conn net.Conn, conn2 net.Conn) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		if !scanner.Scan() {
-			break
-		}
-		message := fmt.Sprintf("%s: %s", USERNAME, scanner.Text())
-		if _, err := fmt.Fprintln(conn, message); err != nil {
-			log.Printf("Error writing to connection: %s", err)
-			break
-		}
-		if _, err := fmt.Fprintln(conn2, message); err != nil {
-			log.Printf("Error writing to connection: %s", err)
-			break
-		}
-		clear()
-	}
-	if err := scanner.Err(); err != nil {
-		log.Printf("Error reading from input: %s", err)
-	}
-}
+	app := tview.NewApplication()
 
-func clear() {
-	cmd := exec.Command("clear")
-	cmd.Stdout = os.Stdout
-	cmd.Run()
+	textView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetChangedFunc(func() {
+			app.Draw()
+		})
+
+	textView.SetBorder(true).SetTitle("Messages")
+	var inputField *tview.InputField
+	inputField = tview.NewInputField().
+		SetLabel("You: ").
+		SetDoneFunc(func(key tcell.Key) {
+			message := strings.TrimSpace(inputField.GetText())
+			if message == "" {
+				return
+			}
+
+			if colorInput, found := strings.CutPrefix(message, "!color "); found {
+				color = colorInput
+				inputField.SetText("")
+				return
+			}
+
+			if strings.HasPrefix(message, "!") || inputNameStage {
+				fmt.Fprintf(conn, "%s\n", message)
+				inputNameStage = false
+			} else {
+				fmt.Fprintf(conn, "[%s]%s[white]\n", color, message)
+			}
+
+			inputField.SetText("")
+		})
+
+	inputField.SetBorder(true).SetTitle("Type your message")
+
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(textView, 0, 1, false).
+		AddItem(inputField, 3, 1, true)
+
+	fmt.Fprint(textView, "[grey]Please enter your username[white]\n")
+
+	go func() {
+		reader := bufio.NewScanner(conn)
+		for reader.Scan() {
+			message := reader.Text()
+			app.QueueUpdateDraw(func() {
+				if msg, found := strings.CutPrefix(message, "[INFO] "); found {
+					message = fmt.Sprintf("[grey]%s[white]", msg)
+				}
+				fmt.Fprintln(textView, message) // Safely update TextView
+			})
+		}
+
+		if err := reader.Err(); err != nil {
+			app.QueueUpdateDraw(func() {
+				fmt.Fprintln(textView, "[red]Disconnected from server.")
+			})
+		} else {
+			app.QueueUpdateDraw(func() {
+				fmt.Fprintln(textView, "[red]Server closed the connection.")
+			})
+		}
+
+		app.Stop()
+	}()
+
+	if err := app.SetRoot(flex, true).Run(); err != nil {
+		fmt.Printf("Error running application: %s\n", err)
+	}
 }

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DaronWasTaken/go-tcp-chat/v2/server/helper"
-	"github.com/DaronWasTaken/go-tcp-chat/v2/server/types"
+	"github.com/DaronWasTaken/go-tcp-chat/server/util"
+	"github.com/DaronWasTaken/go-tcp-chat/server/types"
 )
 
 var (
